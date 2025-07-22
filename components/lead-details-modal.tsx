@@ -286,7 +286,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#1C1D21] border-gray-800 text-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
@@ -295,8 +295,8 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
               </AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="text-xl font-bold">{lead.name}</h2>
-              <p className="text-sm text-gray-500">{lead.form_name || 'Lead Form'}</p>
+              <h2 className="text-xl font-bold text-white">{lead.name}</h2>
+              <p className="text-sm text-gray-400">{lead.form_name || 'Lead Form'}</p>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -306,19 +306,19 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
           <div className="space-y-6">
             {/* Contact Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Contact Information</h3>
+              <h3 className="text-lg font-semibold text-white">Contact Information</h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm">{lead.email}</span>
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-300">{lead.email}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Phone className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm">{lead.phone}</span>
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-300">{lead.phone}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Clock className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-300">
                     Created {new Date(lead.created_at).toLocaleDateString()}
                   </span>
                 </div>
@@ -327,7 +327,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
 
             {/* Status */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Status</h3>
+              <h3 className="text-lg font-semibold text-white">Status</h3>
               <div className="flex flex-wrap gap-2">
                 {["New", "Contacted", "Follow-Up", "Demo Scheduled", "Converted", "Lost"].map((status) => (
                   <Button
@@ -335,7 +335,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
                     variant={lead.status === status ? "default" : "outline"}
                     size="sm"
                     onClick={() => updateLeadStatus(status)}
-                    className="text-xs"
+                    className={cn(
+                      "text-xs",
+                      lead.status === status 
+                        ? "bg-blue-600 text-white hover:bg-blue-700" 
+                        : "bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800"
+                    )}
                   >
                     {status}
                   </Button>
@@ -345,14 +350,14 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
 
             {/* Labels */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Labels</h3>
+              <h3 className="text-lg font-semibold text-white">Labels</h3>
               <div className="flex flex-wrap gap-2">
                 {lead.labels.map((label) => (
-                  <Badge key={label} variant="secondary" className="flex items-center gap-1">
+                  <Badge key={label} variant="secondary" className="flex items-center gap-1 bg-gray-700 text-gray-300 border-gray-600">
                     {label}
                     <button
                       onClick={() => removeLabel(label)}
-                      className="ml-1 hover:text-red-500"
+                      className="ml-1 hover:text-red-400 transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -365,7 +370,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
                     const label = prompt("Enter new label:")
                     if (label) addLabel(label)
                   }}
-                  className="text-xs"
+                  className="text-xs bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800"
                 >
                   <Plus className="w-3 h-3 mr-1" />
                   Add Label
@@ -376,12 +381,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
             {/* Service Interest */}
             {lead.form_data && Object.keys(lead.form_data).length > 0 && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Form Data</h3>
+                <h3 className="text-lg font-semibold text-white">Form Data</h3>
                 <div className="space-y-2">
                   {Object.entries(lead.form_data).map(([key, value]) => (
                     <div key={key} className="text-sm">
-                      <span className="font-medium text-gray-700">{key}:</span>
-                      <span className="ml-2 text-gray-600">{value as string}</span>
+                      <span className="font-medium text-gray-300">{key}:</span>
+                      <span className="ml-2 text-gray-400">{value as string}</span>
                     </div>
                   ))}
                 </div>
@@ -393,7 +398,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
           <div className="space-y-6">
             {/* Notes */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2 text-white">
                 <MessageSquare className="w-5 h-5" />
                 Notes ({notes.length})
               </h3>
@@ -404,13 +409,13 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
                   placeholder="Add a note..."
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  className="min-h-[80px]"
+                  className="min-h-[80px] bg-[#0A0B0F] border-gray-700 text-white placeholder:text-gray-400"
                 />
                 <Button
                   onClick={addNote}
                   disabled={!newNote.trim() || isAddingNote}
                   size="sm"
-                  className="w-full"
+                  className="w-full bg-blue-600 text-white hover:bg-blue-700"
                 >
                   {isAddingNote ? "Adding..." : "Add Note"}
                 </Button>
@@ -419,12 +424,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
               {/* Notes List */}
               <div className="space-y-3 max-h-60 overflow-y-auto">
                 {notes.map((note) => (
-                  <div key={note.id} className="bg-gray-50 p-3 rounded-lg">
+                  <div key={note.id} className="bg-[#0A0B0F] border border-gray-700 p-3 rounded-lg">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm">{note.content}</p>
+                        <p className="text-sm text-gray-300">{note.content}</p>
                         <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                          <span className="font-medium">{note.userName}</span>
+                          <span className="font-medium text-gray-400">{note.userName}</span>
                           <span>•</span>
                           <span>{new Date(note.createdAt).toLocaleString()}</span>
                         </div>
@@ -442,38 +447,40 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
 
             {/* Follow-ups */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2 text-white">
                 <CalendarDays className="w-5 h-5" />
                 Follow-ups ({followUps.length})
               </h3>
               
               {/* Add Follow-up */}
-              <div className="space-y-3 p-4 border rounded-lg">
+              <div className="space-y-3 p-4 border border-gray-700 rounded-lg bg-[#0A0B0F]">
                 <div className="grid grid-cols-2 gap-2">
                   <Input
                     type="date"
                     value={newFollowUp.date}
                     onChange={(e) => setNewFollowUp(prev => ({ ...prev, date: e.target.value }))}
                     placeholder="Date"
+                    className="bg-[#0A0B0F] border-gray-700 text-white"
                   />
                   <Input
                     type="time"
                     value={newFollowUp.time}
                     onChange={(e) => setNewFollowUp(prev => ({ ...prev, time: e.target.value }))}
                     placeholder="Time"
+                    className="bg-[#0A0B0F] border-gray-700 text-white"
                   />
                 </div>
                 <Textarea
                   placeholder="Follow-up notes (optional)"
                   value={newFollowUp.notes}
                   onChange={(e) => setNewFollowUp(prev => ({ ...prev, notes: e.target.value }))}
-                  className="min-h-[60px]"
+                  className="min-h-[60px] bg-[#0A0B0F] border-gray-700 text-white placeholder:text-gray-400"
                 />
                 <Button
                   onClick={addFollowUp}
                   disabled={!newFollowUp.date || !newFollowUp.time || isAddingFollowUp}
                   size="sm"
-                  className="w-full"
+                  className="w-full bg-blue-600 text-white hover:bg-blue-700"
                 >
                   {isAddingFollowUp ? "Scheduling..." : "Schedule Follow-up"}
                 </Button>
@@ -482,12 +489,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
               {/* Follow-ups List */}
               <div className="space-y-3 max-h-60 overflow-y-auto">
                 {followUps.map((followUp) => (
-                  <div key={followUp.id} className="bg-gray-50 p-3 rounded-lg">
+                  <div key={followUp.id} className="bg-[#0A0B0F] border border-gray-700 p-3 rounded-lg">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm font-medium">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm font-medium text-gray-300">
                             {new Date(followUp.scheduledAt).toLocaleString()}
                           </span>
                           {followUp.completed && (
@@ -495,7 +502,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate }: LeadDetail
                           )}
                         </div>
                         {followUp.notes && (
-                          <p className="text-sm text-gray-600 mt-1">{followUp.notes}</p>
+                          <p className="text-sm text-gray-400 mt-1">{followUp.notes}</p>
                         )}
                       </div>
                     </div>

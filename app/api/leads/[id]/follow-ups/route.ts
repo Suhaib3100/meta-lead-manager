@@ -7,16 +7,32 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('Fetching follow-ups for lead:', params.id);
+
+    // Validate that the lead exists
+    const lead = await prisma.lead.findUnique({
+      where: { id: params.id }
+    });
+
+    if (!lead) {
+      return NextResponse.json(
+        { error: 'Lead not found' },
+        { status: 404 }
+      );
+    }
+
     const followUps = await prisma.followUp.findMany({
       where: { leadId: params.id },
       orderBy: { scheduledAt: 'asc' }
     });
 
+    console.log(`Found ${followUps.length} follow-ups for lead ${params.id}`);
+
     return NextResponse.json({ followUps });
   } catch (error) {
     console.error('Error fetching follow-ups:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch follow-ups' },
+      { error: 'Failed to fetch follow-ups', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -31,10 +47,24 @@ export async function POST(
     const body = await request.json();
     const { scheduledAt, notes } = body;
 
+    console.log('Follow-up POST request:', { leadId: params.id, scheduledAt, notes });
+
     if (!scheduledAt) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
+      );
+    }
+
+    // Validate that the lead exists
+    const lead = await prisma.lead.findUnique({
+      where: { id: params.id }
+    });
+
+    if (!lead) {
+      return NextResponse.json(
+        { error: 'Lead not found' },
+        { status: 404 }
       );
     }
 
@@ -46,11 +76,13 @@ export async function POST(
       }
     });
 
+    console.log('Follow-up created successfully:', followUp);
+
     return NextResponse.json({ followUp });
   } catch (error) {
     console.error('Error creating follow-up:', error);
     return NextResponse.json(
-      { error: 'Failed to create follow-up' },
+      { error: 'Failed to create follow-up', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
