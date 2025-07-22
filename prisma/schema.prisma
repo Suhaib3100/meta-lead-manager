@@ -1,0 +1,54 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  campaignId  String   @map("campaign_id")
+  formId      String   @map("form_id")
+  pageId      String   @map("page_id")
+  source      String   @default("facebook")
+  receivedAt  DateTime @default(now()) @map("received_at")
+  status      String   @default("new")
+  notes       String[]
+  assignedTo  String?  @map("assigned_to")
+  tags        String[]
+  rawData     Json?    @map("raw_data") // Store complete webhook payload
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([pageId])
+  @@index([formId])
+  @@index([status])
+  @@map("leads")
+}
+
+model FacebookPage {
+  id        String   @id
+  name      String
+  accessToken String @map("access_token")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("facebook_pages")
+}
+
+model FacebookForm {
+  id        String   @id
+  name      String
+  pageId    String   @map("page_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([pageId])
+  @@map("facebook_forms")
+} 
