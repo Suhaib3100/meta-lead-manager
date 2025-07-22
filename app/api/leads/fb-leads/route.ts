@@ -1,25 +1,28 @@
 import { NextResponse } from 'next/server';
-import { getFormLeads } from '@/lib/facebook';
 import { prisma } from '@/lib/prisma';
+
+interface FacebookLeadField {
+  name: string;
+  values: string[];
+}
+
+interface FacebookLead {
+  id: string;
+  created_time: string;
+  ad_id: string;
+  form_id: string;
+  field_data: FacebookLeadField[];
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const pageId = searchParams.get('page_id');
-    const formId = searchParams.get('form_id');
 
-    if (!pageId || !formId) {
+    if (!pageId) {
       return NextResponse.json(
-        { error: 'Missing page_id or form_id parameter' },
+        { error: 'Missing page_id parameter' },
         { status: 400 }
-      );
-    }
-
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Missing authorization header' },
-        { status: 401 }
       );
     }
 
@@ -35,30 +38,74 @@ export async function GET(request: Request) {
       );
     }
 
-    const leads = await getFormLeads(formId, page.accessToken);
+    // First, get all forms for this page
+    const formsResponse = await fetch(
+      `https://graph.facebook.com/v19.0/${pageId}/leadgen_forms?access_token=${page.accessToken}`
+    );
 
-    // Store new leads in database
-    for (const leadData of leads) {
-      await prisma.lead.upsert({
-        where: { id: leadData.id },
-        create: {
-          id: leadData.id,
-          name: leadData.field_data.find(f => f.name === 'full_name')?.values[0] || '',
-          email: leadData.field_data.find(f => f.name === 'email')?.values[0] || null,
-          phone: leadData.field_data.find(f => f.name === 'phone_number')?.values[0] || null,
-          campaignId: leadData.ad_id,
-          formId: leadData.form_id,
-          pageId: pageId,
-          receivedAt: new Date(leadData.created_time),
-          rawData: leadData as any,
-        },
-        update: {} // Don't update existing leads
-      });
+    if (!formsResponse.ok) {
+      console.error('Failed to fetch forms:', await formsResponse.text());
+      return NextResponse.json(
+        { error: 'Failed to fetch forms' },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ leads });
+    const formsData = await formsResponse.json();
+    const forms = formsData.data || [];
+
+    // For each form, get its leads
+    const allLeads = [];
+    for (const form of forms) {
+      const leadsResponse = await fetch(
+        `https://graph.facebook.com/v19.0/${form.id}/leads?access_token=${page.accessToken}`
+      );
+
+      if (!leadsResponse.ok) {
+        console.error(`Failed to fetch leads for form ${form.id}:`, await leadsResponse.text());
+        continue;
+      }
+
+      const leadsData = await leadsResponse.json();
+      const leads = (leadsData.data || []) as FacebookLead[];
+
+      // Process and store each lead
+      for (const leadData of leads) {
+        const fieldMap = new Map(
+          leadData.field_data.map(field => [field.name, field.values[0]])
+        );
+
+        const lead = await prisma.lead.upsert({
+          where: { id: leadData.id },
+          create: {
+            id: leadData.id,
+            name: fieldMap.get('full_name') || '',
+            email: fieldMap.get('email') || null,
+            phone: fieldMap.get('phone_number') || null,
+            campaignId: leadData.ad_id || '',
+            formId: form.id,
+            pageId: pageId,
+            status: 'new',
+            notes: [],
+            tags: [],
+            receivedAt: new Date(leadData.created_time),
+            rawData: leadData as any,
+          },
+          update: {} // Don't update existing leads
+        });
+
+        allLeads.push(lead);
+      }
+    }
+
+    // Sort leads by receivedAt in descending order (newest first)
+    allLeads.sort((a, b) => 
+      new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+    );
+
+    return NextResponse.json({ leads: allLeads });
   } catch (error) {
-    console.error('Error fetching Facebook leads:', error);
+    console.error('Error fetching leads:', error);
     return NextResponse.json(
       { error: 'Failed to fetch leads' },
       { status: 500 }

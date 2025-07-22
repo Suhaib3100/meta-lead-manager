@@ -18,17 +18,29 @@ import {
   Timer,
   BarChart3,
   Filter,
+  Loader2,
 } from "lucide-react"
 import { KanbanView } from "@/components/kanban-view"
 import { ListView } from "@/components/list-view"
 import { LeadDrawer } from "@/components/lead-drawer"
-import { FacebookSyncModal } from "@/components/facebook-sync-modal"
 import { LabelManagementModal } from "@/components/label-management-modal"
 import { ColumnVisibilityModal } from "@/components/column-visibility-modal"
 import { mockLeads, type Lead, type KanbanColumn } from "@/lib/mock-data"
 import { useRealtimeStore } from "@/lib/realtime-store"
 import { useToast } from "@/hooks/use-toast"
 import { RealtimeIndicator } from "@/components/realtime-indicator"
+
+interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string;
+}
+
+interface FacebookLead extends Lead {
+  source: 'facebook';
+  pageId: string;
+  formId: string;
+}
 
 export default function CRMDashboard() {
   const [activeView, setActiveView] = useState<"kanban" | "list">("kanban")
@@ -37,9 +49,11 @@ export default function CRMDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [labelFilter, setLabelFilter] = useState<string>("all")
   const [selectedLeads, setSelectedLeads] = useState<string[]>([])
-  const [showFacebookSync, setShowFacebookSync] = useState(false)
   const [showLabelManagement, setShowLabelManagement] = useState(false)
   const [showColumnVisibility, setShowColumnVisibility] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [facebookPages, setFacebookPages] = useState<FacebookPage[]>([])
+
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumn[]>([
     { id: "New", title: "New", color: "border-blue-500/20" },
     { id: "Contacted", title: "Contacted", color: "border-yellow-500/20" },
@@ -51,14 +65,72 @@ export default function CRMDashboard() {
 
   // Realtime store
   const { leads, setLeads, moveLeadRealtime, updateLead: updateLeadRealtime, simulateActivity } = useRealtimeStore()
-
   const { toast } = useToast()
 
   // Initialize leads and start simulation
   useEffect(() => {
     setLeads(mockLeads)
     simulateActivity()
+    fetchFacebookPages()
   }, [setLeads, simulateActivity])
+
+  const fetchFacebookPages = async () => {
+    try {
+      const response = await fetch('/api/leads/fb-pages', {
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`
+        }
+      });
+      const data = await response.json();
+      if (data.pages) {
+        setFacebookPages(data.pages);
+      }
+    } catch (error) {
+      console.error('Error fetching pages:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch Facebook pages',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const syncFacebookLeads = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/leads/sync', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: 'Success',
+          description: 'Leads synced successfully',
+        });
+        // Refresh leads after sync
+        const leadsResponse = await fetch('/api/leads/fb-leads', {
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`
+          }
+        });
+        const leadsData = await leadsResponse.json();
+        if (leadsData.leads) {
+          setLeads([...leads, ...leadsData.leads]);
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing leads:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to sync leads',
+        variant: 'destructive',
+      });
+    }
+    setIsSyncing(false);
+  };
 
   // Enhanced Analytics calculations
   const totalLeads = leads.length
@@ -148,11 +220,21 @@ export default function CRMDashboard() {
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
-                onClick={() => setShowFacebookSync(true)}
+                onClick={syncFacebookLeads}
+                disabled={isSyncing}
                 className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white bg-transparent"
               >
-                <Facebook className="w-4 h-4 mr-2" />
-                Sync Facebook
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Facebook className="w-4 h-4 mr-2" />
+                    Sync Facebook
+                  </>
+                )}
               </Button>
               <Button
                 variant="outline"
@@ -193,14 +275,12 @@ export default function CRMDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-400 mb-1">Conversion Rate</p>
-                  <p className="text-3xl font-bold text-white">{conversionRate.toFixed(1)}%</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {convertedLeads} of {totalLeads} converted
-                  </p>
+                  <p className="text-sm font-medium text-slate-400 mb-1">Facebook Pages</p>
+                  <p className="text-3xl font-bold text-white">{facebookPages.length}</p>
+                  <p className="text-xs text-slate-500 mt-1">Connected pages</p>
                 </div>
-                <div className="w-12 h-12 bg-green-600/10 rounded-lg flex items-center justify-center">
-                  <Target className="w-6 h-6 text-green-400" />
+                <div className="w-12 h-12 bg-blue-600/10 rounded-lg flex items-center justify-center">
+                  <Facebook className="w-6 h-6 text-blue-400" />
                 </div>
               </div>
             </CardContent>
@@ -225,12 +305,14 @@ export default function CRMDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-400 mb-1">Avg Response Time</p>
-                  <p className="text-3xl font-bold text-white">2.4 hours</p>
-                  <p className="text-xs text-slate-500 mt-1">15% faster than average</p>
+                  <p className="text-sm font-medium text-slate-400 mb-1">Conversion Rate</p>
+                  <p className="text-3xl font-bold text-white">{conversionRate.toFixed(1)}%</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {convertedLeads} of {totalLeads} converted
+                  </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-600/10 rounded-lg flex items-center justify-center">
-                  <Timer className="w-6 h-6 text-purple-400" />
+                <div className="w-12 h-12 bg-green-600/10 rounded-lg flex items-center justify-center">
+                  <Target className="w-6 h-6 text-green-400" />
                 </div>
               </div>
             </CardContent>
@@ -387,8 +469,6 @@ export default function CRMDashboard() {
         onClose={() => setSelectedLead(null)}
         onUpdate={updateLead}
       />
-
-      <FacebookSyncModal isOpen={showFacebookSync} onClose={() => setShowFacebookSync(false)} onSync={() => {}} />
 
       <LabelManagementModal isOpen={showLabelManagement} onClose={() => setShowLabelManagement(false)} />
 

@@ -4,8 +4,6 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
-import { useState } from 'react';
-import { PasswordGate } from '@/components/password-gate';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -14,10 +12,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider
           attribute="class"
@@ -25,11 +21,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {!isAuthenticated ? (
-            <PasswordGate onAuthenticated={() => setIsAuthenticated(true)} />
-          ) : (
-            children
-          )}
+          {children}
           <Toaster />
         </ThemeProvider>
       </body>
