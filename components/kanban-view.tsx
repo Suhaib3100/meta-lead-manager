@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Calendar, MessageSquare, Phone, Mail, Clock, Plus, MoreHorizontal, CheckCircle, Star, Zap } from "lucide-react"
 import type { Lead, KanbanColumn } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
+import { useSocket } from "@/hooks/use-socket"
+import { useRealtimeStore } from "@/lib/realtime-store"
 
 interface KanbanViewProps {
   leads: Lead[]
@@ -151,10 +153,26 @@ export function KanbanView({ leads, onLeadClick, onStatusChange, columns, onAddC
   const [newColumnTitle, setNewColumnTitle] = useState("")
   const [showAddColumn, setShowAddColumn] = useState(false)
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
+  const [dragOverCard, setDragOverCard] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const handleDragStart = (e: React.DragEvent, lead: Lead) => {
     setDraggedLead(lead)
+    setIsDragging(true)
     e.dataTransfer.effectAllowed = "move"
+    
+    // Set a custom drag image
+    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement
+    dragImage.style.opacity = '0.8'
+    dragImage.style.transform = 'rotate(5deg) scale(0.95)'
+    dragImage.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)'
+    document.body.appendChild(dragImage)
+    e.dataTransfer.setDragImage(dragImage, 0, 0)
+    
+    // Remove the drag image after a short delay
+    setTimeout(() => {
+      document.body.removeChild(dragImage)
+    }, 0)
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -162,21 +180,51 @@ export function KanbanView({ leads, onLeadClick, onStatusChange, columns, onAddC
     e.dataTransfer.dropEffect = "move"
   }
 
-  const handleDragEnter = (columnId: string) => {
+  const handleDragEnter = (columnId: string, cardId?: string) => {
     setDragOverColumn(columnId)
+    if (cardId) {
+      setDragOverCard(cardId)
+    }
   }
 
-  const handleDragLeave = () => {
-    setDragOverColumn(null)
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if we're leaving the column entirely
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX
+    const y = e.clientY
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setDragOverColumn(null)
+      setDragOverCard(null)
+    }
   }
 
   const handleDrop = (e: React.DragEvent, newStatus: string) => {
     e.preventDefault()
     if (draggedLead && draggedLead.status !== newStatus) {
+      const fromStatus = draggedLead.status
       onStatusChange(draggedLead.id, newStatus)
+      
+      // Emit real-time event for lead movement
+      if (window.socket) {
+        window.socket.emit('move_lead', {
+          leadId: draggedLead.id,
+          fromStatus,
+          toStatus: newStatus
+        })
+      }
     }
     setDraggedLead(null)
     setDragOverColumn(null)
+    setDragOverCard(null)
+    setIsDragging(false)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedLead(null)
+    setDragOverColumn(null)
+    setDragOverCard(null)
+    setIsDragging(false)
   }
 
   const getLeadsByStatus = (status: string) => {
@@ -202,11 +250,12 @@ export function KanbanView({ leads, onLeadClick, onStatusChange, columns, onAddC
           return (
             <div
               key={column.id}
-              className="flex-shrink-0 w-[340px] h-full"
+              className="flex-shrink-0 w-[360px] h-full"
               onDragOver={handleDragOver}
               onDragEnter={() => handleDragEnter(column.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, column.id)}
+              onDragEnd={handleDragEnd}
             >
               {/* Column Container */}
               <div className={cn(
