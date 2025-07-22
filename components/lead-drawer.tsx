@@ -45,7 +45,7 @@ interface LeadDrawerProps {
   lead: Lead | null
   isOpen: boolean
   onClose: () => void
-  onUpdate: (lead: Lead) => void
+  onUpdate: (leadId: string, updates: any) => void
 }
 
 const getLabelColor = (label: string) => {
@@ -175,8 +175,15 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
   const formFields = getFormFields(currentLead)
 
   const handleSave = () => {
-    if (editedLead) {
-      onUpdate(editedLead)
+    if (editedLead && lead) {
+      const updates = {
+        status: editedLead.status,
+        labels: editedLead.labels,
+        notes: editedLead.notes,
+        next_follow_up: editedLead.next_follow_up,
+        timeline: editedLead.timeline
+      }
+      onUpdate(lead.id, updates)
       setEditedLead(null)
     }
   }

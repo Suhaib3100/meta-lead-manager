@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Calendar, MessageSquare, Phone, Mail, Clock, Plus, MoreHorizontal, CheckCircle, Star, Zap } from "lucide-react"
 import type { Lead, KanbanColumn } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
-import { useSocket } from "@/hooks/use-socket"
+import { usePusher } from "@/hooks/use-pusher"
 import { useRealtimeStore } from "@/lib/realtime-store"
 
 interface KanbanViewProps {
@@ -155,6 +155,32 @@ export function KanbanView({ leads, onLeadClick, onStatusChange, columns, onAddC
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
   const [dragOverCard, setDragOverCard] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  
+  // Real-time pusher connection
+  const { currentUser } = useRealtimeStore()
+  const pusher = usePusher({
+    userId: currentUser.id,
+    userName: currentUser.name,
+    userColor: currentUser.color,
+    onLeadUpdated: useRealtimeStore.getState().handleLeadUpdated,
+    onLeadMoved: useRealtimeStore.getState().handleLeadMoved,
+    onNoteAdded: useRealtimeStore.getState().handleNoteAdded,
+    onNoteUpdated: useRealtimeStore.getState().handleNoteUpdated,
+    onNoteDeleted: useRealtimeStore.getState().handleNoteDeleted,
+    onLabelAdded: useRealtimeStore.getState().handleLabelAdded,
+    onLabelRemoved: useRealtimeStore.getState().handleLabelRemoved,
+    onFollowUpScheduled: useRealtimeStore.getState().handleFollowUpScheduled,
+    onFollowUpUpdated: useRealtimeStore.getState().handleFollowUpUpdated,
+    onFollowUpCancelled: useRealtimeStore.getState().handleFollowUpCancelled,
+    onUserJoined: useRealtimeStore.getState().handleUserJoined,
+    onUserLeft: useRealtimeStore.getState().handleUserLeft,
+    onUserActivity: useRealtimeStore.getState().handleUserActivity,
+    onCursorMoved: useRealtimeStore.getState().handleCursorMoved,
+    onLeadsSynced: useRealtimeStore.getState().handleLeadsSynced,
+    onColumnAdded: useRealtimeStore.getState().handleColumnAdded,
+    onColumnUpdated: useRealtimeStore.getState().handleColumnUpdated,
+    onColumnDeleted: useRealtimeStore.getState().handleColumnDeleted,
+  })
 
   const handleDragStart = (e: React.DragEvent, lead: Lead) => {
     setDraggedLead(lead)
@@ -206,12 +232,9 @@ export function KanbanView({ leads, onLeadClick, onStatusChange, columns, onAddC
       onStatusChange(draggedLead.id, newStatus)
       
       // Emit real-time event for lead movement
-      if (window.socket) {
-        window.socket.emit('move_lead', {
-          leadId: draggedLead.id,
-          fromStatus,
-          toStatus: newStatus
-        })
+      if (pusher.isConnected) {
+        pusher.emitLeadMove(draggedLead.id, fromStatus, newStatus)
+        pusher.emitUserAction('moved_lead', draggedLead.id)
       }
     }
     setDraggedLead(null)

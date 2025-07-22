@@ -16,6 +16,9 @@ import {
 import { KanbanView } from "@/components/kanban-view"
 import { ListView } from "@/components/list-view"
 import { LeadDrawer } from "@/components/lead-drawer"
+import { LeadDetailsModal } from "@/components/lead-details-modal"
+import { RealtimeIndicator } from "@/components/realtime-indicator"
+import { RealtimeCursors } from "@/components/realtime-cursor"
 import { useToast } from "@/hooks/use-toast"
 
 interface FacebookPage {
@@ -56,6 +59,7 @@ export default function CRMDashboard() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [selectedLeads, setSelectedLeads] = useState<string[]>([])
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -164,30 +168,26 @@ export default function CRMDashboard() {
     }
   };
 
-  const updateLead = async (updatedLead: Lead) => {
+  const updateLead = async (leadId: string, updates: any) => {
     try {
-      const response = await fetch(`/api/leads/${updatedLead.id}`, {
+      const response = await fetch(`/api/leads/${leadId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer test-token`
         },
-        body: JSON.stringify({
-          status: updatedLead.status,
-          notes: updatedLead.notes,
-          tags: updatedLead.labels
-        })
+        body: JSON.stringify(updates)
       });
 
       if (response.ok) {
         // Update local state
         setLeads(prev => prev.map(lead => 
-          lead.id === updatedLead.id ? updatedLead : lead
+          lead.id === leadId ? { ...lead, ...updates } : lead
         ));
         
         toast({
           title: 'Lead Updated',
-          description: `${updatedLead.name} has been updated`,
+          description: 'Lead has been updated',
         });
       }
     } catch (error) {
@@ -465,7 +465,10 @@ export default function CRMDashboard() {
           {activeView === "kanban" ? (
             <KanbanView
               leads={filteredLeads}
-              onLeadClick={setSelectedLead}
+              onLeadClick={(lead) => {
+                setSelectedLead(lead)
+                setIsModalOpen(true)
+              }}
               onStatusChange={updateLeadStatus}
               columns={[
                 { id: "new", title: "New", color: "border-blue-500/20" },
@@ -497,6 +500,18 @@ export default function CRMDashboard() {
         onClose={() => setSelectedLead(null)}
         onUpdate={updateLead}
       />
+
+      {/* Lead Details Modal */}
+      <LeadDetailsModal
+        lead={selectedLead}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpdate={updateLead}
+      />
+
+      {/* Real-time Components */}
+      <RealtimeIndicator />
+      <RealtimeCursors />
     </div>
   )
 }

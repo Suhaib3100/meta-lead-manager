@@ -19,17 +19,53 @@ model Lead {
   source      String   @default("facebook")
   receivedAt  DateTime @default(now()) @map("received_at")
   status      String   @default("new")
-  notes       String[]
   assignedTo  String?  @map("assigned_to")
   tags        String[]
   rawData     Json?    @map("raw_data") // Store complete webhook payload
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  notes       Note[]
+  followUps   FollowUp[]
 
   @@index([pageId])
   @@index([formId])
   @@index([status])
   @@map("leads")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String
+  leadId    String   @map("lead_id")
+  userId    String   @map("user_id")
+  userName  String   @map("user_name")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("notes")
+}
+
+model FollowUp {
+  id        String   @id @default(cuid())
+  leadId    String   @map("lead_id")
+  scheduledAt DateTime @map("scheduled_at")
+  notes     String?
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([scheduledAt])
+  @@map("follow_ups")
 }
 
 model FacebookPage {

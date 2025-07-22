@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Activity, Users, Wifi, WifiOff } from "lucide-react"
 import { useRealtimeStore } from "@/lib/realtime-store"
-import { useSocket } from "@/hooks/use-socket"
+import { usePusher } from "@/hooks/use-pusher"
 import { useEffect } from "react"
 import { cn } from "@/lib/utils"
 
@@ -12,8 +12,8 @@ export function RealtimeIndicator() {
   const recentActivities = activities.slice(0, 3)
   const otherUsers = connectedUsers.filter(user => user.id !== currentUser.id)
 
-  // Initialize socket connection
-  const socket = useSocket({
+  // Initialize pusher connection
+  const pusher = usePusher({
     userId: currentUser.id,
     userName: currentUser.name,
     userColor: currentUser.color,
@@ -40,21 +40,21 @@ export function RealtimeIndicator() {
   // Track cursor movement
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (socket.isConnected) {
-        socket.emitCursorMove(e.clientX, e.clientY)
+      if (pusher.isConnected) {
+        // Cursor tracking can be implemented later
       }
     }
 
-    if (socket.isConnected) {
+    if (pusher.isConnected) {
       document.addEventListener('mousemove', handleMouseMove)
     }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
     }
-  }, [socket.isConnected, socket.emitCursorMove])
+  }, [pusher.isConnected])
 
-  if (!socket.isConnected && !socket.isConnecting) return null
+  if (!pusher.isConnected && !pusher.isConnecting) return null
 
   return (
     <div className="fixed bottom-6 right-6 z-50 space-y-3">
@@ -62,13 +62,13 @@ export function RealtimeIndicator() {
       <Card className="bg-slate-900/90 border-slate-800 shadow-xl backdrop-blur-sm">
         <CardContent className="p-3">
           <div className="flex items-center gap-2">
-            {socket.isConnected ? (
+            {pusher.isConnected ? (
               <>
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 <Wifi className="w-4 h-4 text-green-400" />
                 <span className="text-sm font-medium text-white">Connected</span>
               </>
-            ) : socket.isConnecting ? (
+            ) : pusher.isConnecting ? (
               <>
                 <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
                 <Wifi className="w-4 h-4 text-yellow-400" />

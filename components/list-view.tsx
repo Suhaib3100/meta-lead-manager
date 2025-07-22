@@ -31,7 +31,7 @@ interface ListViewProps {
   onStatusChange: (leadId: string, newStatus: string) => void
   selectedLeads: string[]
   onSelectLeads: (leadIds: string[]) => void
-  onUpdateLead: (lead: Lead) => void
+  onUpdateLead: (leadId: string, updates: any) => void
 }
 
 const getLabelColor = (label: string) => {
@@ -133,22 +133,17 @@ export function ListView({
 
   const saveEdit = () => {
     if (editingCell) {
-      const lead = leads.find((l) => l.id === editingCell.leadId)
-      if (lead) {
-        const updatedLead = {
-          ...lead,
-          [editingCell.field]: editValue,
-          timeline: [
-            ...lead.timeline,
-            {
-              action: `${editingCell.field} updated to "${editValue}"`,
-              timestamp: new Date().toISOString(),
-              user: "User",
-            },
-          ],
-        }
-        onUpdateLead(updatedLead)
+      const updates = {
+        [editingCell.field]: editValue,
+        timeline: [
+          {
+            action: `${editingCell.field} updated to "${editValue}"`,
+            timestamp: new Date().toISOString(),
+            user: "User",
+          },
+        ],
       }
+      onUpdateLead(editingCell.leadId, updates)
     }
     setEditingCell(null)
     setEditValue("")
