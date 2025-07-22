@@ -32,11 +32,17 @@ interface Lead {
   source: string;
   status: string;
   labels: string[];
-  notes: string[];
+  notes: Array<string | { text: string; timestamp: string }>;
   created_at: string;
   form_name?: string;
   page?: string;
   timeline?: any[];
+  form_id?: string;
+  submitted_at?: string;
+  form_data?: {
+    [key: string]: string;
+  };
+  next_follow_up?: string;
 }
 
 export default function CRMDashboard() {

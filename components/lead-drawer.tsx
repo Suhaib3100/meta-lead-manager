@@ -30,6 +30,13 @@ import {
   Paperclip,
   Brain,
   Zap,
+  Facebook,
+  ExternalLink,
+  MapPin,
+  Building,
+  Globe,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react"
 import type { Lead } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
@@ -62,12 +69,88 @@ const getLabelColor = (label: string) => {
 
 const formatDateTime = (dateString: string) => {
   return new Date(dateString).toLocaleString("en-US", {
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   })
+}
+
+const formatDateShort = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+const getServiceIcon = (service: string) => {
+  switch (service?.toLowerCase()) {
+    case "web-development":
+    case "web development":
+      return "🌐"
+    case "app-development":
+    case "app development":
+      return "📱"
+    case "seo":
+      return "🔍"
+    case "digital marketing":
+      return "📈"
+    case "design":
+      return "🎨"
+    default:
+      return "💼"
+  }
+}
+
+const getServiceColor = (service: string) => {
+  switch (service?.toLowerCase()) {
+    case "web-development":
+    case "web development":
+      return "bg-blue-900/30 text-blue-300 border-blue-800/50"
+    case "app-development":
+    case "app development":
+      return "bg-purple-900/30 text-purple-300 border-purple-800/50"
+    case "seo":
+      return "bg-green-900/30 text-green-300 border-green-800/50"
+    case "digital marketing":
+      return "bg-orange-900/30 text-orange-300 border-orange-800/50"
+    case "design":
+      return "bg-pink-900/30 text-pink-300 border-pink-800/50"
+    default:
+      return "bg-gray-900/30 text-gray-300 border-gray-800/50"
+  }
+}
+
+// Extract service interest from rawData
+const getServiceInterest = (lead: any) => {
+  if (lead.rawData && typeof lead.rawData === 'object') {
+    const rawData = lead.rawData as any;
+    if (rawData.field_data) {
+      const serviceField = rawData.field_data.find((field: any) => 
+        field.name?.toLowerCase().includes('service') || 
+        field.name?.toLowerCase().includes('interest')
+      );
+      return serviceField?.values?.[0] || null;
+    }
+  }
+  return null;
+}
+
+// Extract all form fields from rawData
+const getFormFields = (lead: any) => {
+  if (lead.rawData && typeof lead.rawData === 'object') {
+    const rawData = lead.rawData as any;
+    if (rawData.field_data) {
+      return rawData.field_data.map((field: any) => ({
+        name: field.name,
+        value: field.values?.[0] || 'N/A'
+      }));
+    }
+  }
+  return [];
 }
 
 const quickFollowUpOptions = [
@@ -82,12 +165,14 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
   const [editedLead, setEditedLead] = useState<Lead | null>(null)
   const [newNote, setNewNote] = useState("")
   const [newLabel, setNewLabel] = useState("")
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState("form")
   const [showCustomDate, setShowCustomDate] = useState(false)
 
   if (!lead) return null
 
   const currentLead = editedLead || lead
+  const serviceInterest = getServiceInterest(currentLead)
+  const formFields = getFormFields(currentLead)
 
   const handleSave = () => {
     if (editedLead) {
@@ -109,7 +194,7 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
         },
       ],
       timeline: [
-        ...currentLead.timeline,
+        ...(currentLead.timeline || []),
         {
           action: "Note added",
           timestamp: new Date().toISOString(),
@@ -129,7 +214,7 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
       ...currentLead,
       labels: [...currentLead.labels, newLabel],
       timeline: [
-        ...currentLead.timeline,
+        ...(currentLead.timeline || []),
         {
           action: `Label "${newLabel}" added`,
           timestamp: new Date().toISOString(),
@@ -147,7 +232,7 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
       ...currentLead,
       labels: currentLead.labels.filter((label) => label !== labelToRemove),
       timeline: [
-        ...currentLead.timeline,
+        ...(currentLead.timeline || []),
         {
           action: `Label "${labelToRemove}" removed`,
           timestamp: new Date().toISOString(),
@@ -179,18 +264,18 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
       return
     }
 
-    const updatedLead = {
-      ...currentLead,
-      next_follow_up: followUpDate.toISOString(),
-      timeline: [
-        ...currentLead.timeline,
-        {
-          action: `Follow-up scheduled for ${option.label}`,
-          timestamp: new Date().toISOString(),
-          user: "User",
-        },
-      ],
-    }
+          const updatedLead = {
+        ...currentLead,
+        next_follow_up: followUpDate.toISOString(),
+        timeline: [
+          ...(currentLead.timeline || []),
+          {
+            action: `Follow-up scheduled for ${option.label}`,
+            timestamp: new Date().toISOString(),
+            user: "User",
+          },
+        ],
+      }
 
     setEditedLead(updatedLead)
   }
@@ -211,13 +296,20 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-          <TabsList className="grid w-full grid-cols-4 bg-gray-900 border-gray-800">
+          <TabsList className="grid w-full grid-cols-5 bg-gray-900 border-gray-800">
             <TabsTrigger
               value="overview"
               className="flex items-center gap-2 data-[state=active]:bg-gray-800 data-[state=active]:text-white text-gray-400"
             >
               <User className="w-4 h-4" />
               Overview
+            </TabsTrigger>
+            <TabsTrigger
+              value="form"
+              className="flex items-center gap-2 data-[state=active]:bg-gray-800 data-[state=active]:text-white text-gray-400"
+            >
+              <FileText className="w-4 h-4" />
+              Form
             </TabsTrigger>
             <TabsTrigger
               value="activity"
@@ -442,6 +534,102 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
             </Card>
           </TabsContent>
 
+          <TabsContent value="form" className="space-y-6 mt-6">
+            <Card className="bg-gray-900 border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-white">
+                  <FileText className="w-5 h-5" />
+                  Form Submission Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Form Header Info */}
+                <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-300">Form Name</Label>
+                      <p className="text-white font-medium mt-1">{currentLead.form_name || 'Lead Generation Form'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-300">Form ID</Label>
+                      <p className="text-white font-medium mt-1">{currentLead.form_id || currentLead.id}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-300">Submitted On</Label>
+                      <p className="text-white font-medium mt-1">
+                        {formatDateTime(currentLead.submitted_at || currentLead.created_at)}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-300">Source Page</Label>
+                      <p className="text-white font-medium mt-1">{currentLead.page || 'Facebook Lead Form'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form Fields */}
+                <div className="space-y-4">
+                  <Label className="text-lg font-medium text-white">Form Responses</Label>
+                  
+                  {/* Service Interest */}
+                  <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <Label className="text-sm font-medium text-blue-300">What service are you interested in?</Label>
+                    <p className="text-white font-medium mt-2 text-lg">
+                      {currentLead.form_data?.service || currentLead.form_data?.['service_interest'] || 'Web Development'}
+                    </p>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                      <Label className="text-sm font-medium text-blue-300">Full Name</Label>
+                      <p className="text-white font-medium mt-2">{currentLead.name}</p>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                      <Label className="text-sm font-medium text-blue-300">Email</Label>
+                      <p className="text-white font-medium mt-2">{currentLead.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <Label className="text-sm font-medium text-blue-300">Phone Number</Label>
+                    <p className="text-white font-medium mt-2">{currentLead.phone}</p>
+                  </div>
+
+                  {/* Additional Form Fields */}
+                  {currentLead.form_data && Object.keys(currentLead.form_data).length > 0 && (
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium text-gray-300">Additional Information</Label>
+                      {Object.entries(currentLead.form_data).map(([key, value]) => {
+                        if (['service', 'service_interest'].includes(key)) return null;
+                        return (
+                          <div key={key} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                            <Label className="text-sm font-medium text-blue-300 capitalize">
+                              {key.replace(/_/g, ' ')}
+                            </Label>
+                            <p className="text-white font-medium mt-2">{value}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex items-center gap-3 pt-4 border-t border-gray-700">
+                  <Button variant="outline" className="bg-transparent border-gray-700 text-gray-300 hover:bg-gray-800">
+                    <Download className="w-4 h-4 mr-2" />
+                    View Original Form
+                  </Button>
+                  <Button variant="outline" className="bg-transparent border-gray-700 text-gray-300 hover:bg-gray-800">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Export Form Data
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="activity" className="space-y-6 mt-6">
             <Card className="bg-gray-900 border-gray-800">
               <CardHeader>
@@ -452,7 +640,7 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {currentLead.timeline.map((activity, index) => (
+                  {(currentLead.timeline || []).map((activity, index) => (
                     <div key={index} className="flex gap-3 pb-4 border-b border-gray-800 last:border-b-0">
                       <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
                       <div className="flex-1">
@@ -496,15 +684,20 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
                 <Separator className="bg-gray-800" />
 
                 <div className="space-y-4 max-h-80 overflow-y-auto">
-                  {currentLead.notes.map((note, index) => (
-                    <div key={index} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                      <p className="text-sm text-white leading-relaxed">{note.text}</p>
-                      <p className="text-xs text-gray-400 mt-2 flex items-center gap-2">
-                        <Clock className="w-3 h-3" />
-                        {formatDateTime(note.timestamp)}
-                      </p>
-                    </div>
-                  ))}
+                  {currentLead.notes.map((note, index) => {
+                    const noteData = typeof note === 'string' 
+                      ? { text: note, timestamp: currentLead.created_at }
+                      : note;
+                    return (
+                      <div key={index} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                        <p className="text-sm text-white leading-relaxed">{noteData.text}</p>
+                        <p className="text-xs text-gray-400 mt-2 flex items-center gap-2">
+                          <Clock className="w-3 h-3" />
+                          {formatDateTime(noteData.timestamp)}
+                        </p>
+                      </div>
+                    );
+                  })}
                   {currentLead.notes.length === 0 && (
                     <div className="text-center py-8 text-gray-400">
                       <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
