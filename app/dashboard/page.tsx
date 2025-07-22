@@ -165,7 +165,7 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Lead Management</h1>
+        <h1 className="text-3xl font-bold">Pronexus Lead Management</h1>
         <Button 
           onClick={syncLeads} 
           disabled={isLoading}

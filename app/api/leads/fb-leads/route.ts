@@ -82,7 +82,7 @@ export async function GET(request: Request) {
             name: fieldMap.get('full_name') || '',
             email: fieldMap.get('email') || null,
             phone: fieldMap.get('phone_number') || null,
-            campaignId: leadData.ad_id || '',
+            campaignId: leadData.ad_id || 'unknown', // Default to 'unknown' if missing
             formId: form.id,
             pageId: pageId,
             status: 'new',
@@ -111,4 +111,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-} 
+}   

@@ -15,15 +15,21 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, notes, tags } = body;
+    const { status, notes, tags, name, email, phone } = body;
+
+    // Build update object dynamically
+    const updateData: any = {};
+    
+    if (status !== undefined) updateData.status = status;
+    if (notes !== undefined) updateData.notes = notes;
+    if (tags !== undefined) updateData.tags = tags;
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
 
     const lead = await prisma.lead.update({
       where: { id: params.id },
-      data: {
-        status,
-        notes,
-        tags,
-      },
+      data: updateData,
     });
 
     return NextResponse.json(lead);

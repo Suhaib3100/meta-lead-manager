@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getFormLeads } from '@/lib/facebook';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
@@ -47,23 +46,56 @@ export async function POST(request: Request) {
           });
 
           // Get and store leads for this form
-          const leads = await getFormLeads(form.id, page.accessToken);
-          
+          const leadsResponse = await fetch(
+            `https://graph.facebook.com/v19.0/${form.id}/leads?access_token=${page.accessToken}`
+          );
+
+          if (!leadsResponse.ok) {
+            console.error(`Failed to fetch leads for form ${form.id}`);
+            continue;
+          }
+
+          const leadsData = await leadsResponse.json();
+          const leads = leadsData.data || [];
+
           for (const leadData of leads) {
+            // Extract field data safely
+            let name = '';
+            let email = null;
+            let phone = null;
+
+            for (const field of leadData.field_data) {
+              const fieldName = field.name.toLowerCase();
+              const fieldValue = field.values[0] || '';
+
+              if (fieldName === 'full name' || fieldName === 'name') {
+                name = fieldValue;
+              } else if (fieldName === 'email') {
+                email = fieldValue;
+              } else if (fieldName === 'phone' || fieldName === 'phone_number') {
+                phone = fieldValue;
+              }
+            }
+
             await prisma.lead.upsert({
               where: { id: leadData.id },
               create: {
                 id: leadData.id,
-                name: leadData.field_data.find(f => f.name === 'full_name')?.values[0] || '',
-                email: leadData.field_data.find(f => f.name === 'email')?.values[0] || null,
-                phone: leadData.field_data.find(f => f.name === 'phone_number')?.values[0] || null,
-                campaignId: leadData.ad_id,
-                formId: leadData.form_id,
+                name: name || 'Unknown',
+                email: email,
+                phone: phone,
+                campaignId: leadData.ad_id || 'unknown',
+                formId: form.id,
                 pageId: page.id,
+                status: 'new',
                 receivedAt: new Date(leadData.created_time),
                 rawData: leadData as any,
               },
-              update: {} // Don't update existing leads
+              update: {
+                name: name || 'Unknown',
+                email: email,
+                phone: phone,
+              }
             });
           }
 
