@@ -33,13 +33,11 @@ export async function POST(request: Request) {
               id: 'main',
               accessToken: longLivedToken,
               tokenType: 'long_lived',
-              createdAt: new Date(),
               expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
             },
             update: {
               accessToken: longLivedToken,
               tokenType: 'long_lived',
-              createdAt: new Date(),
               expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
             },
           });
@@ -97,7 +95,6 @@ export async function POST(request: Request) {
             where: { id: 'main' },
             data: {
               accessToken: refreshedToken,
-              createdAt: new Date(),
               expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
             },
           });
