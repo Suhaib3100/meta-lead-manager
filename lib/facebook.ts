@@ -14,6 +14,87 @@ export interface FacebookLead {
   }>;
 }
 
+export interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string;
+}
+
+// Convert short-lived token to long-lived token (valid for 60 days)
+export async function getLongLivedToken(shortLivedToken: string): Promise<string> {
+  const response = await fetch(
+    `${FB_API_BASE}/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&fb_exchange_token=${shortLivedToken}`
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to exchange token');
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Refresh long-lived token (extends validity by 60 days)
+export async function refreshLongLivedToken(currentToken: string): Promise<string> {
+  const response = await fetch(
+    `${FB_API_BASE}/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&fb_exchange_token=${currentToken}`
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to refresh token');
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Get page access tokens that don't expire (for pages you own)
+export async function getPageAccessTokens(userAccessToken: string): Promise<FacebookPage[]> {
+  const response = await fetch(
+    `${FB_API_BASE}/me/accounts?access_token=${userAccessToken}&fields=id,name,access_token`
+  );
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch Facebook pages');
+  }
+
+  const data = await response.json();
+  return data.data;
+}
+
+// Check if token is valid
+export async function isTokenValid(accessToken: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${FB_API_BASE}/me?access_token=${accessToken}`
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Get token expiration info
+export async function getTokenInfo(accessToken: string): Promise<{ expires_at?: number; is_valid: boolean }> {
+  try {
+    const response = await fetch(
+      `${FB_API_BASE}/debug_token?input_token=${accessToken}&access_token=${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}`
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        expires_at: data.data.expires_at,
+        is_valid: data.data.is_valid
+      };
+    }
+  } catch (error) {
+    console.error('Error checking token info:', error);
+  }
+  
+  return { is_valid: false };
+}
+
 export async function getFacebookPages(accessToken: string) {
   const response = await fetch(
     `${FB_API_BASE}/me/accounts?access_token=${accessToken}`

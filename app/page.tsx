@@ -21,6 +21,7 @@ import { RealtimeIndicator } from "@/components/realtime-indicator"
 import { RealtimeCursors } from "@/components/realtime-cursor"
 import { useToast } from "@/hooks/use-toast"
 import { useRealtimeStore } from "@/lib/realtime-store"
+import { FacebookTokenManager } from "@/components/facebook-token-manager"
 
 interface FacebookPage {
   id: string;
@@ -56,6 +57,7 @@ export default function CRMDashboard() {
   const [labelFilter, setLabelFilter] = useState<string>("all")
   const [isSyncing, setIsSyncing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [showTokenManager, setShowTokenManager] = useState(false)
   const [facebookPages, setFacebookPages] = useState<FacebookPage[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -67,21 +69,6 @@ export default function CRMDashboard() {
   useEffect(() => {
     initializeData()
   }, [])
-
-  // Listen for real-time sync events
-  useEffect(() => {
-    const handleLeadsSynced = () => {
-      console.log('Real-time sync event received, refreshing leads...');
-      fetchLeads();
-    };
-
-    // Add event listener for sync events
-    window.addEventListener('leads-synced', handleLeadsSynced);
-    
-    return () => {
-      window.removeEventListener('leads-synced', handleLeadsSynced);
-    };
-  }, []);
 
   const initializeData = async () => {
     setIsLoading(true)
@@ -104,37 +91,31 @@ export default function CRMDashboard() {
         setFacebookPages(data.pages);
       }
     } catch (error) {
-      console.error('Error fetching pages:', error);
+      // Silent error handling for cleaner UX
     }
   };
 
   const fetchLeads = async () => {
     try {
-      console.log('Fetching leads...');
       const response = await fetch('/api/leads', {
         headers: {
           'Authorization': `Bearer test-token`
         },
-        // Add cache busting to ensure fresh data
         cache: 'no-store'
       });
       const data = await response.json();
       if (data.leads) {
-        console.log(`Fetched ${data.leads.length} leads from API`);
-        console.log('Lead names:', data.leads.map((l: any) => l.name));
         setLeads(data.leads);
-        setRealtimeLeads(data.leads); // Also update realtime store
-        console.log('Leads state updated. New count:', data.leads.length);
+        setRealtimeLeads(data.leads);
       }
     } catch (error) {
-      console.error('Error fetching leads:', error);
+      // Silent error handling for cleaner UX
     }
   };
 
   const syncFacebookLeads = async () => {
     setIsSyncing(true);
     try {
-      console.log('Starting Facebook lead sync...');
       const response = await fetch('/api/leads/sync', {
         method: 'POST',
         headers: {
@@ -142,7 +123,6 @@ export default function CRMDashboard() {
         }
       });
       const data = await response.json();
-      console.log('Sync response:', data);
       
       if (data.success) {
         toast({
@@ -151,12 +131,10 @@ export default function CRMDashboard() {
         });
         
         // Immediately refresh leads after sync
-        console.log('Refreshing leads after sync...');
         await fetchLeads();
         
         // Also trigger a second refresh after a short delay to ensure all data is updated
         setTimeout(async () => {
-          console.log('Performing secondary refresh...');
           await fetchLeads();
         }, 2000);
       } else {
@@ -167,7 +145,6 @@ export default function CRMDashboard() {
         });
       }
     } catch (error) {
-      console.error('Error syncing leads:', error);
       toast({
         title: 'Error',
         description: 'Failed to sync leads',
@@ -349,9 +326,16 @@ export default function CRMDashboard() {
           </Button>
           <Button 
             variant="outline" 
+            onClick={() => setShowTokenManager(true)}
+            className="bg-transparent"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Token Manager
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={async () => {
               try {
-                console.log('Connecting Facebook pages...');
                 const response = await fetch('/api/leads/connect-pages', {
                   method: 'POST',
                   headers: {
@@ -364,7 +348,6 @@ export default function CRMDashboard() {
                     title: 'Pages Connected',
                     description: `Connected ${data.pagesConnected} Facebook pages`,
                   });
-                  // Refresh pages list
                   await fetchFacebookPages();
                 } else {
                   toast({
@@ -374,7 +357,6 @@ export default function CRMDashboard() {
                   });
                 }
               } catch (error) {
-                console.error('Error connecting pages:', error);
                 toast({
                   title: 'Error',
                   description: 'Failed to connect Facebook pages',
@@ -386,14 +368,6 @@ export default function CRMDashboard() {
           >
             <Settings className="w-4 h-4 mr-2" />
             Connect Pages
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={fetchLeads}
-            className="bg-transparent"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Refresh Leads
           </Button>
           <Button variant="outline" className="bg-transparent">
             <Settings className="w-4 h-4 mr-2" />
@@ -446,52 +420,6 @@ export default function CRMDashboard() {
               <p className="text-xs text-gray-500 mt-1">
                 {convertedLeads} of {totalLeads} converted
               </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Debug Info */}
-      <div className="px-6 mb-4">
-        <div className="bg-[#1C1D21] rounded-lg p-4 border border-gray-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Debug Info</p>
-              <p className="text-sm text-white">Current leads in state: {leads.length}</p>
-              <p className="text-sm text-white">Last sync: {isSyncing ? 'In progress...' : 'Ready'}</p>
-              <p className="text-sm text-yellow-400">Note: Facebook access token may need refresh</p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  console.log('Current leads:', leads);
-                  console.log('Lead names:', leads.map(l => l.name));
-                }}
-                className="bg-transparent"
-              >
-                Log Leads
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/leads/count', {
-                      headers: { 'Authorization': `Bearer test-token` }
-                    });
-                    const data = await response.json();
-                    console.log('Database count:', data.count);
-                    alert(`Database count: ${data.count}, Frontend count: ${leads.length}`);
-                  } catch (error) {
-                    console.error('Error fetching count:', error);
-                  }
-                }}
-                className="bg-transparent"
-              >
-                Check DB Count
-              </Button>
             </div>
           </div>
         </div>
@@ -553,7 +481,7 @@ export default function CRMDashboard() {
                   }}
                   className="bg-[#0A0B0F] border border-gray-800 rounded-md px-2 py-1 text-sm"
                 >
-                  <option value="">Move to...</option>
+                  <option value="">Update Status</option>
                   <option value="new">New</option>
                   <option value="Contacted">Contacted</option>
                   <option value="Follow-Up">Follow-Up</option>
@@ -561,35 +489,26 @@ export default function CRMDashboard() {
                   <option value="Converted">Converted</option>
                   <option value="Lost">Lost</option>
                 </select>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedLeads([])}
-                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                >
-                  Clear
-                </Button>
               </div>
             )}
 
-            <div className="flex items-center bg-[#0A0B0F] rounded-lg p-1">
+            {/* View Toggle */}
+            <div className="flex items-center gap-2 bg-[#0A0B0F] rounded-lg p-1 border border-gray-800">
               <Button
                 variant={activeView === "kanban" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setActiveView("kanban")}
-                className={activeView === "kanban" ? "bg-blue-600" : ""}
+                className={activeView === "kanban" ? "bg-white text-black" : "text-gray-400"}
               >
-                <LayoutGrid className="w-4 h-4 mr-2" />
-                Kanban
+                <LayoutGrid className="w-4 h-4" />
               </Button>
               <Button
                 variant={activeView === "list" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setActiveView("list")}
-                className={activeView === "list" ? "bg-blue-600" : ""}
+                className={activeView === "list" ? "bg-white text-black" : "text-gray-400"}
               >
-                <List className="w-4 h-4 mr-2" />
-                List
+                <List className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -647,6 +566,26 @@ export default function CRMDashboard() {
       {/* Real-time Components */}
       <RealtimeIndicator />
       <RealtimeCursors />
+
+      {/* Token Manager Modal */}
+      {showTokenManager && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#0A0B0F] rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">Facebook Token Manager</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTokenManager(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </Button>
+            </div>
+            <FacebookTokenManager />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

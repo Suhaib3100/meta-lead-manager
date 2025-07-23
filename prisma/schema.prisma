@@ -87,4 +87,15 @@ model FacebookForm {
 
   @@index([pageId])
   @@map("facebook_forms")
+}
+
+model FacebookToken {
+  id          String   @id
+  accessToken String   @map("access_token")
+  tokenType   String   @map("token_type") // 'short_lived', 'long_lived', 'page'
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("facebook_tokens")
 } 
