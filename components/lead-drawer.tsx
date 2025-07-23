@@ -178,18 +178,46 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
     },
     onNoteAdded: (data) => {
       if (data.leadId === lead?.id) {
-        // Refresh the lead to get updated notes
-        // This will be handled by the parent component
+        // Add note in real-time
+        const newNote = {
+          id: `temp-${Date.now()}`, // Temporary ID for real-time updates
+          text: data.note,
+          content: data.note,
+          timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          user: data.userName,
+          userName: data.userName,
+        }
+        onUpdate(data.leadId, { notes: [...(lead?.notes || []), newNote] })
       }
     },
     onNoteUpdated: (data) => {
       if (data.leadId === lead?.id) {
-        // Refresh the lead to get updated notes
+        // Update note in real-time
+        const updatedNotes = (lead?.notes || []).map((note) => {
+          if (typeof note === 'object' && note.id === data.noteId) {
+            return { 
+              ...note, 
+              text: data.note, 
+              content: data.note,
+              timestamp: new Date().toISOString() 
+            }
+          }
+          return note
+        })
+        onUpdate(data.leadId, { notes: updatedNotes })
       }
     },
     onNoteDeleted: (data) => {
       if (data.leadId === lead?.id) {
-        // Refresh the lead to get updated notes
+        // Remove note in real-time
+        const updatedNotes = (lead?.notes || []).filter((note) => {
+          if (typeof note === 'object' && note.id === data.noteId) {
+            return false
+          }
+          return true
+        })
+        onUpdate(data.leadId, { notes: updatedNotes })
       }
     },
     onLabelAdded: (data) => {
@@ -233,8 +261,12 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
     setIsUpdating(true)
     const updates = { [field]: value }
     
-    // Emit real-time update
-    socket.emitLeadUpdate(lead.id, updates)
+    // Try to emit real-time update (but don't fail if socket is not available)
+    try {
+      socket.emitLeadUpdate(lead.id, updates)
+    } catch (socketError) {
+      console.log('Socket not available, continuing without real-time update')
+    }
     
     // Update locally
     onUpdate(lead.id, updates)
@@ -275,11 +307,30 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
       });
 
       if (response.ok) {
-        // Emit real-time note addition
-        socket.emitAddNote(lead.id, newNote)
+        const result = await response.json();
         
-        // Refresh the lead to get updated notes
-        // This will be handled by the parent component
+        // Try to emit real-time note addition (but don't fail if socket is not available)
+        try {
+          socket.emitAddNote(lead.id, newNote)
+        } catch (socketError) {
+          console.log('Socket not available, continuing without real-time update')
+        }
+        
+        // Create the new note data
+        const newNoteData = {
+          id: result.note.id,
+          text: result.note.content,
+          content: result.note.content,
+          timestamp: result.note.createdAt,
+          createdAt: result.note.createdAt,
+          user: result.note.userName,
+          userName: result.note.userName,
+        };
+        
+        // Update the lead locally with the new note
+        const updatedNotes = [...lead.notes, newNoteData];
+        onUpdate(lead.id, { notes: updatedNotes });
+        
         setNewNote("")
       } else {
         console.error('Failed to add note')
@@ -314,8 +365,22 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
         });
 
         if (response.ok) {
-          // Emit real-time note update
-          socket.emitUpdateNote(lead.id, noteToUpdate.id, editNoteText)
+          // Try to emit real-time note update (but don't fail if socket is not available)
+          try {
+            socket.emitUpdateNote(lead.id, noteToUpdate.id, editNoteText)
+          } catch (socketError) {
+            console.log('Socket not available, continuing without real-time update')
+          }
+          
+          // Update the note locally
+          const updatedNotes = [...lead.notes];
+          updatedNotes[index] = {
+            ...noteToUpdate,
+            text: editNoteText,
+            content: editNoteText,
+            timestamp: new Date().toISOString(),
+          };
+          onUpdate(lead.id, { notes: updatedNotes });
           
           setEditingNote(null)
           setEditNoteText("")
@@ -345,8 +410,16 @@ export function LeadDrawer({ lead, isOpen, onClose, onUpdate }: LeadDrawerProps)
         });
 
         if (response.ok) {
-          // Emit real-time note deletion
-          socket.emitDeleteNote(lead.id, noteToDelete.id)
+          // Try to emit real-time note deletion (but don't fail if socket is not available)
+          try {
+            socket.emitDeleteNote(lead.id, noteToDelete.id)
+          } catch (socketError) {
+            console.log('Socket not available, continuing without real-time update')
+          }
+          
+          // Remove the note locally
+          const updatedNotes = lead.notes.filter((_, i) => i !== index);
+          onUpdate(lead.id, { notes: updatedNotes });
         } else {
           console.error('Failed to delete note')
         }

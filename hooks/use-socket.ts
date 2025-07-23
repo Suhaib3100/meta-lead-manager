@@ -44,13 +44,21 @@ export function useSocket(options: UseSocketOptions) {
     setIsConnecting(true);
     setError(null);
 
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
+    // Use the correct WebSocket URL - connect to the socket.io endpoint
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 
+      (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : 'ws://localhost:3000');
+
+    console.log('Connecting to socket server:', socketUrl);
+
+    const socket = io(socketUrl, {
+      path: '/api/socket/io',
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
+      timeout: 20000,
     });
 
     socketRef.current = socket;
