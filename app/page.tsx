@@ -12,16 +12,17 @@ import {
   Download,
   Loader2,
   BarChart3,
+  Maximize2,
 } from "lucide-react"
 import { KanbanView } from "@/components/kanban-view"
 import { ListView } from "@/components/list-view"
 import { LeadDrawer } from "@/components/lead-drawer"
-import { LeadDetailsModal } from "@/components/lead-details-modal"
 import { RealtimeIndicator } from "@/components/realtime-indicator"
 import { RealtimeCursors } from "@/components/realtime-cursor"
 import { useToast } from "@/hooks/use-toast"
 import { useRealtimeStore } from "@/lib/realtime-store"
 import { FacebookTokenManager } from "@/components/facebook-token-manager"
+import { cn } from "@/lib/utils"
 
 interface FacebookPage {
   id: string;
@@ -63,6 +64,7 @@ export default function CRMDashboard() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [selectedLeads, setSelectedLeads] = useState<string[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isKanbanFullScreen, setIsKanbanFullScreen] = useState(false)
   const { toast } = useToast()
   const { setLeads: setRealtimeLeads } = useRealtimeStore()
 
@@ -288,9 +290,13 @@ export default function CRMDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0B0F] text-white">
+    <div className={cn(
+      "min-h-screen bg-[#0A0B0F] text-white",
+      isKanbanFullScreen && activeView === "kanban" ? "h-screen overflow-hidden" : ""
+    )}>
       {/* Header */}
-      <div className="flex items-center justify-between p-6">
+      {(!isKanbanFullScreen || activeView !== "kanban") && (
+        <div className="flex items-center justify-between p-6">
         <div className="flex items-center gap-4">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <BarChart3 className="w-5 h-5" />
@@ -379,9 +385,11 @@ export default function CRMDashboard() {
           </Button>
         </div>
       </div>
+      )}
 
       {/* Analytics Cards */}
-      <div className="grid grid-cols-4 gap-6 p-6">
+      {(!isKanbanFullScreen || activeView !== "kanban") && (
+        <div className="grid grid-cols-4 gap-6 p-6">
         <div className="bg-[#1C1D21] rounded-lg p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -424,8 +432,10 @@ export default function CRMDashboard() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Controls */}
+      {(!isKanbanFullScreen || activeView !== "kanban") && (
       <div className="p-6">
         <div className="bg-[#1C1D21] rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -446,12 +456,12 @@ export default function CRMDashboard() {
                 className="bg-[#0A0B0F] border border-gray-800 rounded-md px-3 py-2 text-sm"
               >
                 <option value="all">All Status</option>
-                <option value="new">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Follow-Up">Follow-Up</option>
-                <option value="Demo Scheduled">Demo Scheduled</option>
-                <option value="Converted">Converted</option>
-                <option value="Lost">Lost</option>
+                <option value="new">Intake</option>
+                <option value="Contacted">Connected</option>
+                <option value="Follow-Up">Callback Required</option>
+                <option value="Demo Scheduled">Qualified</option>
+                <option value="Converted">Non Qualified</option>
+                <option value="Lost">Call Back After</option>
               </select>
 
               <select
@@ -510,12 +520,27 @@ export default function CRMDashboard() {
               >
                 <List className="w-4 h-4" />
               </Button>
+              
+              {/* Full Screen Toggle for Kanban */}
+              {activeView === "kanban" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsKanbanFullScreen(!isKanbanFullScreen)}
+                  className="ml-2 border-gray-700 text-gray-300 hover:bg-gray-800"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>
 
         {/* Leads View */}
-        <div className="min-h-[600px]">
+        <div className={cn(
+          "min-h-[600px]",
+          isKanbanFullScreen && activeView === "kanban" ? "h-screen" : ""
+        )}>
           {activeView === "kanban" ? (
             <KanbanView
               leads={filteredLeads}
@@ -525,14 +550,16 @@ export default function CRMDashboard() {
               }}
               onStatusChange={updateLeadStatus}
               columns={[
-                { id: "new", title: "New", color: "border-blue-500/20" },
-                { id: "Contacted", title: "Contacted", color: "border-yellow-500/20" },
-                { id: "Follow-Up", title: "Follow-Up", color: "border-orange-500/20" },
-                { id: "Demo Scheduled", title: "Demo Scheduled", color: "border-purple-500/20" },
-                { id: "Converted", title: "Converted", color: "border-green-500/20" },
-                { id: "Lost", title: "Lost", color: "border-gray-500/20" },
+                { id: "new", title: "Intake", color: "border-blue-500/20" },
+                { id: "Contacted", title: "Connected", color: "border-green-500/20" },
+                { id: "Follow-Up", title: "Callback Required", color: "border-orange-500/20" },
+                { id: "Demo Scheduled", title: "Qualified", color: "border-purple-500/20" },
+                { id: "Converted", title: "Non Qualified", color: "border-red-500/20" },
+                { id: "Lost", title: "Call Back After", color: "border-gray-500/20" },
               ]}
               onAddColumn={() => {}}
+              isFullScreen={isKanbanFullScreen}
+              onToggleFullScreen={() => setIsKanbanFullScreen(!isKanbanFullScreen)}
             />
           ) : (
             <ListView
@@ -546,6 +573,32 @@ export default function CRMDashboard() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Full Screen Kanban View */}
+      {isKanbanFullScreen && activeView === "kanban" && (
+        <div className="fixed inset-0 z-40 bg-[#0A0B0F]">
+          <KanbanView
+            leads={filteredLeads}
+            onLeadClick={(lead) => {
+              setSelectedLead(lead)
+              setIsModalOpen(true)
+            }}
+            onStatusChange={updateLeadStatus}
+            columns={[
+              { id: "new", title: "Intake", color: "border-blue-500/20" },
+              { id: "Contacted", title: "Connected", color: "border-green-500/20" },
+              { id: "Follow-Up", title: "Callback Required", color: "border-orange-500/20" },
+              { id: "Demo Scheduled", title: "Qualified", color: "border-purple-500/20" },
+              { id: "Converted", title: "Non Qualified", color: "border-red-500/20" },
+              { id: "Lost", title: "Call Back After", color: "border-gray-500/20" },
+            ]}
+            onAddColumn={() => {}}
+            isFullScreen={true}
+            onToggleFullScreen={() => setIsKanbanFullScreen(false)}
+          />
+        </div>
+      )}
 
       {/* Lead Details Drawer */}
       <LeadDrawer
@@ -554,14 +607,13 @@ export default function CRMDashboard() {
         onClose={() => setSelectedLead(null)}
         onUpdate={updateLead}
       />
-
-      {/* Lead Details Modal */}
+{/* 
       <LeadDetailsModal
         lead={selectedLead}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onUpdate={updateLead}
-      />
+      /> */}
 
       {/* Real-time Components */}
       <RealtimeIndicator />

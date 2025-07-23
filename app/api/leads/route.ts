@@ -15,11 +15,15 @@ export async function GET(request: Request) {
     const leads = await prisma.lead.findMany({
       orderBy: {
         receivedAt: 'desc'
+      },
+      include: {
+        notes: true,
+        followUps: true,
       }
     });
 
     // Transform leads to match frontend interface
-    const transformedLeads = leads.map(lead => {
+    const transformedLeads = leads.map((lead: any) => {
       // Extract form data from rawData
       let formData: { [key: string]: string } = {};
       let formId = lead.formId;
@@ -58,6 +62,17 @@ export async function GET(request: Request) {
           console.log(`Extracted form data for ${lead.name}:`, formData);
         }
       }
+
+      // Transform notes to match frontend interface
+      const transformedNotes = lead.notes?.map((note: any) => ({
+        id: note.id,
+        text: note.content,
+        content: note.content,
+        timestamp: note.createdAt,
+        createdAt: note.createdAt,
+        user: note.userName,
+        userName: note.userName,
+      })) || [];
       
       return {
         id: lead.id,
@@ -67,14 +82,15 @@ export async function GET(request: Request) {
         source: lead.source,
         status: lead.status,
         labels: lead.tags || [],
-        notes: lead.notes || [],
+        notes: transformedNotes,
         created_at: lead.receivedAt.toISOString(),
         form_name: lead.formId,
         page: lead.pageId,
         timeline: [],
         form_id: formId,
         submitted_at: submittedAt,
-        form_data: formData
+        form_data: formData,
+        next_follow_up: lead.followUps?.[0]?.scheduledAt?.toISOString() || null
       };
     });
 

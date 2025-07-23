@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Get all notes for a lead
+// GET - Fetch all notes for a lead
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const notes = await prisma.note.findMany({
       where: { leadId: params.id },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json({ notes });
@@ -22,9 +22,9 @@ export async function GET(
   }
 }
 
-// Add a new note
+// POST - Add a new note
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -43,8 +43,8 @@ export async function POST(
         content,
         leadId: params.id,
         userId,
-        userName
-      }
+        userName,
+      },
     });
 
     return NextResponse.json({ note });
