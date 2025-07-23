@@ -20,6 +20,7 @@ import { LeadDetailsModal } from "@/components/lead-details-modal"
 import { RealtimeIndicator } from "@/components/realtime-indicator"
 import { RealtimeCursors } from "@/components/realtime-cursor"
 import { useToast } from "@/hooks/use-toast"
+import { useRealtimeStore } from "@/lib/realtime-store"
 
 interface FacebookPage {
   id: string;
@@ -61,10 +62,26 @@ export default function CRMDashboard() {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { toast } = useToast()
+  const { setLeads: setRealtimeLeads } = useRealtimeStore()
 
   useEffect(() => {
     initializeData()
   }, [])
+
+  // Listen for real-time sync events
+  useEffect(() => {
+    const handleLeadsSynced = () => {
+      console.log('Real-time sync event received, refreshing leads...');
+      fetchLeads();
+    };
+
+    // Add event listener for sync events
+    window.addEventListener('leads-synced', handleLeadsSynced);
+    
+    return () => {
+      window.removeEventListener('leads-synced', handleLeadsSynced);
+    };
+  }, []);
 
   const initializeData = async () => {
     setIsLoading(true)
@@ -93,14 +110,21 @@ export default function CRMDashboard() {
 
   const fetchLeads = async () => {
     try {
+      console.log('Fetching leads...');
       const response = await fetch('/api/leads', {
         headers: {
           'Authorization': `Bearer test-token`
-        }
+        },
+        // Add cache busting to ensure fresh data
+        cache: 'no-store'
       });
       const data = await response.json();
       if (data.leads) {
+        console.log(`Fetched ${data.leads.length} leads from API`);
+        console.log('Lead names:', data.leads.map((l: any) => l.name));
         setLeads(data.leads);
+        setRealtimeLeads(data.leads); // Also update realtime store
+        console.log('Leads state updated. New count:', data.leads.length);
       }
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -110,6 +134,7 @@ export default function CRMDashboard() {
   const syncFacebookLeads = async () => {
     setIsSyncing(true);
     try {
+      console.log('Starting Facebook lead sync...');
       const response = await fetch('/api/leads/sync', {
         method: 'POST',
         headers: {
@@ -117,13 +142,29 @@ export default function CRMDashboard() {
         }
       });
       const data = await response.json();
+      console.log('Sync response:', data);
+      
       if (data.success) {
         toast({
-          title: 'Success',
-          description: 'Leads synced successfully',
+          title: 'Sync Successful',
+          description: `Synced ${data.totalLeadsSynced} leads. Total in DB: ${data.totalLeadsInDB}`,
         });
-        // Refresh leads after sync
+        
+        // Immediately refresh leads after sync
+        console.log('Refreshing leads after sync...');
         await fetchLeads();
+        
+        // Also trigger a second refresh after a short delay to ensure all data is updated
+        setTimeout(async () => {
+          console.log('Performing secondary refresh...');
+          await fetchLeads();
+        }, 2000);
+      } else {
+        toast({
+          title: 'Sync Failed',
+          description: data.error || 'Failed to sync leads',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Error syncing leads:', error);
@@ -306,6 +347,54 @@ export default function CRMDashboard() {
               </>
             )}
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                console.log('Connecting Facebook pages...');
+                const response = await fetch('/api/leads/connect-pages', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer test-token`
+                  }
+                });
+                const data = await response.json();
+                if (data.success) {
+                  toast({
+                    title: 'Pages Connected',
+                    description: `Connected ${data.pagesConnected} Facebook pages`,
+                  });
+                  // Refresh pages list
+                  await fetchFacebookPages();
+                } else {
+                  toast({
+                    title: 'Connection Failed',
+                    description: data.error || 'Failed to connect Facebook pages',
+                    variant: 'destructive',
+                  });
+                }
+              } catch (error) {
+                console.error('Error connecting pages:', error);
+                toast({
+                  title: 'Error',
+                  description: 'Failed to connect Facebook pages',
+                  variant: 'destructive',
+                });
+              }
+            }}
+            className="bg-transparent"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Connect Pages
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={fetchLeads}
+            className="bg-transparent"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Refresh Leads
+          </Button>
           <Button variant="outline" className="bg-transparent">
             <Settings className="w-4 h-4 mr-2" />
             Labels
@@ -357,6 +446,52 @@ export default function CRMDashboard() {
               <p className="text-xs text-gray-500 mt-1">
                 {convertedLeads} of {totalLeads} converted
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Debug Info */}
+      <div className="px-6 mb-4">
+        <div className="bg-[#1C1D21] rounded-lg p-4 border border-gray-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Debug Info</p>
+              <p className="text-sm text-white">Current leads in state: {leads.length}</p>
+              <p className="text-sm text-white">Last sync: {isSyncing ? 'In progress...' : 'Ready'}</p>
+              <p className="text-sm text-yellow-400">Note: Facebook access token may need refresh</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  console.log('Current leads:', leads);
+                  console.log('Lead names:', leads.map(l => l.name));
+                }}
+                className="bg-transparent"
+              >
+                Log Leads
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/leads/count', {
+                      headers: { 'Authorization': `Bearer test-token` }
+                    });
+                    const data = await response.json();
+                    console.log('Database count:', data.count);
+                    alert(`Database count: ${data.count}, Frontend count: ${leads.length}`);
+                  } catch (error) {
+                    console.error('Error fetching count:', error);
+                  }
+                }}
+                className="bg-transparent"
+              >
+                Check DB Count
+              </Button>
             </div>
           </div>
         </div>

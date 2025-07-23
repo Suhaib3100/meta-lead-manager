@@ -41,24 +41,31 @@ const getLabelColor = (label: string) => {
 }
 
 const getServiceColor = (service: string) => {
-  switch (service?.toLowerCase()) {
-    case "web development":
-    case "web-development":
-      return "bg-blue-500 text-white border-blue-400"
-    case "mobile app":
-    case "app development":
-      return "bg-green-500 text-white border-green-400"
-    case "ui/ux design":
-    case "design":
-      return "bg-purple-500 text-white border-purple-400"
-    case "seo":
-    case "marketing":
-      return "bg-orange-500 text-white border-orange-400"
-    case "consulting":
-      return "bg-indigo-500 text-white border-indigo-400"
-    default:
-      return "bg-gray-500 text-white border-gray-400"
+  const serviceLower = service.toLowerCase();
+  
+  if (serviceLower.includes('web') || serviceLower.includes('development')) {
+    return 'bg-blue-600 text-white border-blue-500';
   }
+  if (serviceLower.includes('digital') || serviceLower.includes('marketing')) {
+    return 'bg-green-600 text-white border-green-500';
+  }
+  if (serviceLower.includes('app') || serviceLower.includes('mobile')) {
+    return 'bg-purple-600 text-white border-purple-500';
+  }
+  if (serviceLower.includes('design') || serviceLower.includes('graphics')) {
+    return 'bg-pink-600 text-white border-pink-500';
+  }
+  if (serviceLower.includes('catering') || serviceLower.includes('कॅटरिंग')) {
+    return 'bg-orange-600 text-white border-orange-500';
+  }
+  if (serviceLower.includes('seo')) {
+    return 'bg-yellow-600 text-white border-yellow-500';
+  }
+  if (serviceLower.includes('general') || serviceLower.includes('inquiry') || serviceLower === 'yes') {
+    return 'bg-gray-600 text-white border-gray-500';
+  }
+  
+  return 'bg-gray-600 text-white border-gray-500';
 }
 
 const formatDate = (dateString: string) => {
@@ -104,8 +111,9 @@ const getServiceInterest = (lead: Lead): string => {
   if (lead.form_data) {
     const formData = lead.form_data;
     
-    // Common field names for service interest
+    // Common field names for service interest - updated based on actual data
     const serviceFields = [
+      'what_service_are_you_interested_in?',
       'service',
       'service_interest', 
       'What service are you interested in?',
@@ -119,7 +127,15 @@ const getServiceInterest = (lead: Lead): string => {
     
     for (const field of serviceFields) {
       if (formData[field]) {
-        return formData[field];
+        const value = formData[field];
+        // Format the service name for better display
+        if (value === 'web-development') return 'Web Development';
+        if (value === 'digital-marketing') return 'Digital Marketing';
+        if (value === 'app-development') return 'App Development';
+        if (value === 'graphics-designing') return 'Graphics Design';
+        if (value === 'व्हेज कॅटरिंग') return 'Veg Catering';
+        if (value === 'Yes') return 'General Inquiry';
+        return value;
       }
     }
     
